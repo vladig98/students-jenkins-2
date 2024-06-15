@@ -1,0 +1,62 @@
+pipeline {
+    agent any
+
+    environment {
+        NODEJS_VERSION = '14.x' // specify the Node.js version
+    }
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Setup Node.js') {
+            steps {
+                script {
+                    def nvmInstalled = sh(script: 'command -v nvm', returnStatus: true) == 0
+                    if (!nvmInstalled) {
+                        sh 'curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash'
+                        sh 'export NVM_DIR="$HOME/.nvm"'
+                        sh '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
+                    }
+                    sh "nvm install ${NODEJS_VERSION}"
+                    sh "nvm use ${NODEJS_VERSION}"
+                }
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+
+        stage('Start Application') {
+            steps {
+                sh 'npm start &'
+                sleep 10 // wait for the application to start
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                sh 'npm test'
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Cleaning up...'
+            sh 'nvm deactivate'
+        }
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed!'
+        }
+    }
+}
